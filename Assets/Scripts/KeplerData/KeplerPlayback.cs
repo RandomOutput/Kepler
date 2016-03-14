@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using VRViz.Core;
+using VRViz.Unity;
 
 namespace KeplerData {
   public class KeplerPlayback : MonoBehaviour {
@@ -22,50 +23,28 @@ namespace KeplerData {
 
     private Dictionary<uint, Planet> m_spawnedPlanets = new Dictionary<uint, Planet>();
 
+    private FunctionalMapping<StellarCoordinates, ComparableVec3> m_stellarMapping;
     private LinearMapping m_distanceMapping;
 
     private List<string> m_uniqueFacilities;
     private Dictionary<string, Color> m_facilityColors;
 
+    private MappingManager<Planet> m_planetMappingManager;
+
     void Awake() {
       KeplerParser.ParseKeplerDataAsync((KeplerNode[] nodes, List<string> uniqueFalcilities) => {
         m_uniqueFacilities = uniqueFalcilities;
-        
+
         NodeStoreDefault<KeplerNode> nodeStore = new NodeStoreDefault<KeplerNode>(nodes);
 
-        // Configure Distance Mapping
-        m_distanceMapping = new LinearMapping(
-          new VRViz.Core.Range<float>(distance_inputMin, distance_inputMax),
-          new VRViz.Core.Range<float>(distance_outputMin, distance_outputMax)
-         );
-
-        for (int i = 0; i < m_uniqueFacilities.Count; i++) {
-          Debug.Log("Facility " + i + ": " + m_uniqueFacilities[i]);
-        }
+        configureMappings();
 
         m_facilityColors = new Dictionary<string, Color>();
         for (int i = 0; i < m_uniqueFacilities.Count; i++) {
           m_facilityColors.Add(m_uniqueFacilities[i], new Color(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value));
         }
 
-        // Spawn planets
-        foreach (KeplerNode node in nodeStore.Nodes.Values) {
-          GameObject newPlanetVisual = GameObject.Instantiate(m_planetPrefab);
-          newPlanetVisual.name = node.Name;
-          newPlanetVisual.transform.parent = m_exoplanetRoot;
-          newPlanetVisual.SetActive(false);
-          try {
-            newPlanetVisual.GetComponent<Renderer>().material.color = m_facilityColors[node.DiscoveringFaciltiy.ToLower()];
-            newPlanetVisual.GetComponent<Renderer>().material.SetColor("_EmissionColor", m_facilityColors[node.DiscoveringFaciltiy.ToLower()]);
-          }
-          catch (System.Collections.Generic.KeyNotFoundException e) {
-            Debug.Log(e.Message + " | Could not find key: " + node.DiscoveringFaciltiy.ToLower());
-          }
-          Planet newPlanet = newPlanetVisual.GetComponent<Planet>();
-          newPlanet.DataNode = node;
-          projectPlanet(newPlanet);
-          m_spawnedPlanets.Add(node.UID, newPlanetVisual.GetComponent<Planet>());
-        }
+        spawnPlanets(nodeStore);
 
         // Create playhead
         Playhead<KeplerNode> playhead = new Playhead<KeplerNode>(nodeStore, 1991.0f, 2017.0f, true);
@@ -80,24 +59,10 @@ namespace KeplerData {
           m_spawnedPlanets[node.UID].Hide();
         };
 
-        m_distanceMapping.OnMappingChanged += ReprojectPlanets;
-
         // Start Data Playback
         playhead.InitializePlayhead();
         StartCoroutine(moveTimeForward(playhead));
       });
-    }
-
-    public void ReprojectPlanets(Range<float> input, Range<float> output) {
-      Planet[] planets = new Planet[m_spawnedPlanets.Values.Count];
-      m_spawnedPlanets.Values.CopyTo(planets, 0);
-      for (int i = 0; i < planets.Length; i++) {
-        projectPlanet(planets[i]);
-      }
-    }
-
-    private void projectPlanet(Planet planet) {
-      planet.transform.localPosition = planet.DataNode.Position.ToPosition(m_distanceMapping);
     }
 
     void Update() {
@@ -124,6 +89,62 @@ namespace KeplerData {
         playhead.StepPlayhead(1f);
         yield return new WaitForSeconds(1.5f);
       }
+    }
+
+    private void spawnPlanets(NodeStoreDefault<KeplerNode> nodeStore) {
+      foreach (KeplerNode node in nodeStore.Nodes.Values) {
+        GameObject newPlanetVisual = GameObject.Instantiate(m_planetPrefab);
+        newPlanetVisual.name = node.Name;
+        newPlanetVisual.transform.parent = m_exoplanetRoot;
+        newPlanetVisual.SetActive(false);
+        try {
+          newPlanetVisual.GetComponent<Renderer>().material.color = m_facilityColors[node.DiscoveringFaciltiy.ToLower()];
+          newPlanetVisual.GetComponent<Renderer>().material.SetColor("_EmissionColor", m_facilityColors[node.DiscoveringFaciltiy.ToLower()]);
+        }
+        catch (System.Collections.Generic.KeyNotFoundException e) {
+          Debug.Log(e.Message + " | Could not find key: " + node.DiscoveringFaciltiy.ToLower());
+        }
+        Planet newPlanet = newPlanetVisual.GetComponent<Planet>();
+        newPlanet.DataNode = node;
+        m_spawnedPlanets.Add(node.UID, newPlanetVisual.GetComponent<Planet>());
+      }
+
+      m_planetMappingManager.UpdateMappers();
+    }
+
+    private void configureMappings() {
+      // TODO:  This is horrible. Giant array allocation every time you need to get data.
+      //        I really need to fix this up.
+      m_planetMappingManager = new MappingManager<Planet>(
+        () => {
+          Planet[] planets = new Planet[m_spawnedPlanets.Values.Count];
+          m_spawnedPlanets.Values.CopyTo(planets, 0);
+          return planets;
+        }
+      );
+
+      AttributeMapper<Planet, StellarCoordinates, ComparableVec3> stellarMapper = new AttributeMapper<Planet, StellarCoordinates, ComparableVec3>(
+        (Planet planet) => planet.DataNode.Position,
+        new FunctionalMapping<StellarCoordinates, ComparableVec3>((StellarCoordinates stellarCoords) => {
+          return Quaternion.Euler(-stellarCoords.declination, stellarCoords.rightAscention, 0.0f) * Vector3.forward;
+        }),
+        (Planet planet, ComparableVec3 newPosition) => {
+          float distance = planet.transform.localPosition.magnitude;
+          planet.transform.localPosition = (Vector3)newPosition * distance;
+        }
+      );
+
+      AttributeMapper<Planet, float, float> distanceMapper = new AttributeMapper<Planet, float, float>(
+        (Planet planet) => planet.DataNode.Position.distance,
+        new LinearMapping(
+          new VRViz.Core.Range<float>(distance_inputMin, distance_inputMax),
+          new VRViz.Core.Range<float>(distance_outputMin, distance_outputMax)
+        ),
+        (Planet planet, float newDistance) => { planet.transform.localPosition = planet.transform.localPosition.normalized * newDistance; }
+      );
+
+      m_planetMappingManager += stellarMapper;
+      m_planetMappingManager += distanceMapper;
     }
   }
 }
