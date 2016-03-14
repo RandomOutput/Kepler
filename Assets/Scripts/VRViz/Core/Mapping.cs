@@ -3,11 +3,18 @@ using System.Collections;
 
 namespace VRViz {
   namespace Core {
-    public abstract class Mapping<InputType, OutputType> 
+    public delegate void MappingChangedHandler();
+
+    public interface IMapping<InputType, OutputType> {
+      event MappingChangedHandler OnMappingChanged;
+      OutputType MapValue(InputType value);
+    }
+
+    public abstract class RangedMapping<InputType, OutputType> :
+      IMapping<InputType, OutputType>
       where InputType : struct, IComparable<InputType>, IEquatable<InputType>
       where OutputType : struct, IComparable<OutputType>, IEquatable<OutputType>
     {
-      public delegate void MappingChangedHandler(Range<InputType> input, Range<OutputType> output);
       public event MappingChangedHandler OnMappingChanged;
 
       private Range<InputType> m_input;
@@ -41,7 +48,7 @@ namespace VRViz {
         }
       }
 
-      public Mapping(Range<InputType> mappingInput, Range<OutputType> mappingOutput) {
+      public RangedMapping(Range<InputType> mappingInput, Range<OutputType> mappingOutput) {
         m_input = mappingInput;
         m_output = mappingOutput;
 
@@ -52,19 +59,19 @@ namespace VRViz {
       private void OnBoundsChanged<T>(T min, T max) {
         MappingChangedHandler e = OnMappingChanged;
         if (e != null)
-          e(m_input, m_output);
+          e();
       }
 
       protected void fireMappingChanged() {
         MappingChangedHandler e = OnMappingChanged;
         if (e != null)
-          e(Input, Output);
+          e();
       }
 
       abstract public OutputType MapValue(InputType value);
     }
 
-    public class LinearMapping : Mapping<float, float> {
+    public class LinearMapping : RangedMapping<float, float> {
       public LinearMapping(Range<float> mappingInput, Range<float> mappingOutput) :
         base(mappingInput, mappingOutput) { }
 
@@ -75,12 +82,13 @@ namespace VRViz {
       }
     }
 
-    public class FunctionalMapping<Input, Output> : 
-      Mapping<Input, Output>
-      where Input : struct, IComparable<Input>, IEquatable<Input>
-      where Output : struct, IComparable<Output>, IEquatable<Output>
+    public class FunctionalMapping<InputType, OutputType> :
+      IMapping<InputType, OutputType>
     {
-      public delegate Output MappingFunction(Input input);
+      public delegate OutputType MappingFunction(InputType input);
+
+      public event MappingChangedHandler OnMappingChanged;
+
       private MappingFunction m_mapper;
 
       public MappingFunction Mapper {
@@ -101,14 +109,20 @@ namespace VRViz {
         }
       }
 
-      public FunctionalMapping(Range<Input> mappingInput, Range<Output> mappingOutput, MappingFunction mapper) :
-        base(mappingInput, mappingOutput) 
+      public FunctionalMapping(MappingFunction mapper) :
+        base()
       {
         m_mapper = mapper;
       }
 
-      public override Output MapValue(Input value) {
+      public OutputType MapValue(InputType value) {
         return m_mapper(value);
+      }
+
+      protected void fireMappingChanged() {
+        MappingChangedHandler e = OnMappingChanged;
+        if (e != null)
+          e();
       }
     }
   }
