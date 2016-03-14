@@ -35,8 +35,10 @@ namespace VRViz {
       }
 
       public virtual void UpdateMappers() {
+        T[] data = m_dataAccessor();
+
         for (int i = 0; i < m_mappers.Count; i++) {
-          m_mappers[i].ApplyMapping(m_dataAccessor());
+          m_mappers[i].ApplyMapping(data);
         }
       }
     }
