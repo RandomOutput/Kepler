@@ -101,7 +101,7 @@ namespace KeplerData {
         m_spawnedPlanets.Add(node.UID, newPlanetVisual.GetComponent<Planet>());
       }
 
-      m_planetMappingManager.UpdateMappers();
+      m_planetMappingManager.UpdateAllMappers();
     }
 
     private void configureMappings() {

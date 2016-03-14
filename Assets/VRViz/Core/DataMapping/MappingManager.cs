@@ -26,19 +26,23 @@ namespace VRViz {
 
       public void AddMapper(IAttributeMapper<T> mapper) {
         m_mappers.Add(mapper);
-        mapper.OnMappingChanged += UpdateMappers;
+        mapper.OnMappingChanged += AutoUpdate;
       }
 
       public void RemoveMapper(IAttributeMapper<T> mapper) {
         m_mappers.Remove(mapper);
-        mapper.OnMappingChanged -= UpdateMappers;
+        mapper.OnMappingChanged -= AutoUpdate;
       }
 
-      public void UpdateMappers() {
+      public void UpdateAllMappers() {
+        UpdateMappers(true);
+      }
+
+      private void AutoUpdate() {
         UpdateMappers(false);
       }
 
-      public virtual void UpdateMappers(bool updateAllMappers) {
+      public virtual void UpdateMappers(bool updateAllMappers = false) {
         T[] data = m_dataAccessor();
 
         for (int i = 0; i < m_mappers.Count; i++) {
