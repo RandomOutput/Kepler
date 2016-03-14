@@ -158,7 +158,8 @@ namespace KeplerData {
         (Planet planet, Color color) => {
           planet.GetComponent<Renderer>().material.color = color;
           planet.GetComponent<Renderer>().material.SetColor("_EmissionColor", color);
-        }
+        },
+        false
       );
 
       m_distanceMapping = (LinearMapping)distanceMapper.Mapping;
