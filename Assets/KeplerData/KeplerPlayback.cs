@@ -47,7 +47,7 @@ namespace KeplerData {
         spawnPlanets(nodeStore);
 
         // Create playhead
-        Playhead<KeplerNode> playhead = new Playhead<KeplerNode>(nodeStore, 1991.0f, 2017.0f, true);
+        Playhead<KeplerNode> playhead = new Playhead<KeplerNode>(nodeStore, 1990.0f, 2017.0f, true);
         playhead.OnStep += (Playhead<KeplerNode> head, float playheadTime, float stepSize) => { Debug.Log(playheadTime); };
 
         // Configure Node Birth and Death Behaviors
