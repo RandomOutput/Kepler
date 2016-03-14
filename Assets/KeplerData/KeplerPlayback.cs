@@ -23,7 +23,6 @@ namespace KeplerData {
 
     private Dictionary<uint, Planet> m_spawnedPlanets = new Dictionary<uint, Planet>();
 
-    private FunctionalMapping<StellarCoordinates, ComparableVec3> m_stellarMapping;
     private LinearMapping m_distanceMapping;
 
     private List<string> m_uniqueFacilities;
@@ -97,13 +96,6 @@ namespace KeplerData {
         newPlanetVisual.name = node.Name;
         newPlanetVisual.transform.parent = m_exoplanetRoot;
         newPlanetVisual.SetActive(false);
-        try {
-          newPlanetVisual.GetComponent<Renderer>().material.color = m_facilityColors[node.DiscoveringFaciltiy.ToLower()];
-          newPlanetVisual.GetComponent<Renderer>().material.SetColor("_EmissionColor", m_facilityColors[node.DiscoveringFaciltiy.ToLower()]);
-        }
-        catch (System.Collections.Generic.KeyNotFoundException e) {
-          Debug.Log(e.Message + " | Could not find key: " + node.DiscoveringFaciltiy.ToLower());
-        }
         Planet newPlanet = newPlanetVisual.GetComponent<Planet>();
         newPlanet.DataNode = node;
         m_spawnedPlanets.Add(node.UID, newPlanetVisual.GetComponent<Planet>());
@@ -125,9 +117,11 @@ namespace KeplerData {
 
       AttributeMapper<Planet, StellarCoordinates, ComparableVec3> stellarMapper = new AttributeMapper<Planet, StellarCoordinates, ComparableVec3>(
         (Planet planet) => planet.DataNode.Position,
+
         new FunctionalMapping<StellarCoordinates, ComparableVec3>((StellarCoordinates stellarCoords) => {
           return Quaternion.Euler(-stellarCoords.declination, stellarCoords.rightAscention, 0.0f) * Vector3.forward;
         }),
+
         (Planet planet, ComparableVec3 newPosition) => {
           float distance = planet.transform.localPosition.magnitude;
           planet.transform.localPosition = (Vector3)newPosition * distance;
@@ -135,18 +129,43 @@ namespace KeplerData {
       );
 
       AttributeMapper<Planet, float, float> distanceMapper = new AttributeMapper<Planet, float, float>(
+
         (Planet planet) => planet.DataNode.Position.distance,
+
         new LinearMapping(
           new VRViz.Core.Range<float>(distance_inputMin, distance_inputMax),
           new VRViz.Core.Range<float>(distance_outputMin, distance_outputMax)
         ),
+
         (Planet planet, float newDistance) => { planet.transform.localPosition = planet.transform.localPosition.normalized * newDistance; }
+      );
+
+      AttributeMapper<Planet, string, Color> facillityColorMapper = new AttributeMapper<Planet, string, Color>(
+
+        (Planet planet) => planet.DataNode.DiscoveringFaciltiy,
+
+        new FunctionalMapping<string, Color>((string facilityName) => {
+          Color returnColor = Color.magenta;
+          try {
+            returnColor = m_facilityColors[facilityName.ToLower()];
+          }
+          catch (System.Collections.Generic.KeyNotFoundException e) {
+            Debug.Log(e.Message + " | Could not find key: " + facilityName.ToLower());
+          }
+          return returnColor;
+        }),
+
+        (Planet planet, Color color) => {
+          planet.GetComponent<Renderer>().material.color = color;
+          planet.GetComponent<Renderer>().material.SetColor("_EmissionColor", color);
+        }
       );
 
       m_distanceMapping = (LinearMapping)distanceMapper.Mapping;
 
       m_planetMappingManager += stellarMapper;
       m_planetMappingManager += distanceMapper;
+      m_planetMappingManager += facillityColorMapper;
     }
   }
 }

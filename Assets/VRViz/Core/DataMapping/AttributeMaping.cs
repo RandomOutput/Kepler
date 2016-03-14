@@ -11,8 +11,6 @@ namespace VRViz {
 
     public class AttributeMapper<DataType, InputType, OutputType> :
       IAttributeMapper<DataType>
-      where InputType : struct, IComparable<InputType>, IEquatable<InputType>
-      where OutputType : struct, IComparable<OutputType>, IEquatable<OutputType>
     {
       public delegate InputType InputAccessor(DataType dataNode);
       public delegate void AtributeApplier(DataType target, OutputType valueToApply);
