@@ -6,7 +6,7 @@ namespace VRViz {
     public class MappingManager<T> {
       public delegate T[] DataAccessor();
 
-      public List<IAttributeMapper<T>> m_mappers;
+      private List<IAttributeMapper<T>> m_mappers;
       private DataAccessor m_dataAccessor;
 
       public MappingManager(DataAccessor dataAccessor) {
@@ -34,10 +34,16 @@ namespace VRViz {
         mapper.OnMappingChanged -= UpdateMappers;
       }
 
-      public virtual void UpdateMappers() {
+      public void UpdateMappers() {
+        UpdateMappers(false);
+      }
+
+      public virtual void UpdateMappers(bool updateAllMappers) {
         T[] data = m_dataAccessor();
 
         for (int i = 0; i < m_mappers.Count; i++) {
+          if (!m_mappers[i].AutoUpdate && !updateAllMappers)
+            return;
           m_mappers[i].ApplyMapping(data);
         }
       }

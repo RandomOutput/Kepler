@@ -3,8 +3,17 @@ using System.Collections;
 
 namespace VRViz {
   namespace Core {
+    public delegate void AutoUpdateChangedHandler(bool newAutoUpdateSetting);
+
     public interface IAttributeMapper<DataType> {
       event MappingChangedHandler OnMappingChanged;
+      event AutoUpdateChangedHandler OnAutoUpdateChanged;
+
+      bool AutoUpdate {
+        get;
+        set;
+      }
+
       void ApplyMapping(DataType dataNode);
       void ApplyMapping(DataType[] dataNodes);
     }
@@ -16,15 +25,34 @@ namespace VRViz {
       public delegate void AtributeApplier(DataType target, OutputType valueToApply);
 
       public event MappingChangedHandler OnMappingChanged;
+      public event AutoUpdateChangedHandler OnAutoUpdateChanged;
 
       private InputAccessor m_getInput;
       private IMapping<InputType, OutputType> m_mapping;
       private AtributeApplier m_applier;
+      private bool m_autoUpdate;
 
-      public AttributeMapper(InputAccessor getInput, IMapping<InputType, OutputType> dataMapping, AtributeApplier applier) {
+      public bool AutoUpdate {
+        get {
+          return m_autoUpdate;
+        }
+        set {
+          if (value == m_autoUpdate)
+            return;
+
+          m_autoUpdate = value;
+
+          AutoUpdateChangedHandler e = OnAutoUpdateChanged;
+          if (e != null)
+            e(m_autoUpdate);
+        }
+      }
+
+      public AttributeMapper(InputAccessor getInput, IMapping<InputType, OutputType> dataMapping, AtributeApplier applier, bool autoUpdate = true) {
         m_getInput = getInput;
         m_mapping = dataMapping;
         m_applier = applier;
+        m_autoUpdate = autoUpdate;
 
         m_mapping.OnMappingChanged += fireMappingChanged;
       }
