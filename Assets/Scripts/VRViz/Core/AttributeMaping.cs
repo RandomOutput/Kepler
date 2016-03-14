@@ -31,6 +31,12 @@ namespace VRViz {
         m_mapping.OnMappingChanged += fireMappingChanged;
       }
 
+      public IMapping<InputType, OutputType> Mapping {
+        get {
+          return m_mapping;
+        }
+      }
+
       public void ApplyMapping(DataType dataNode) {
         InputType input = m_getInput(dataNode);
         OutputType mappedValue = m_mapping.MapValue(input);

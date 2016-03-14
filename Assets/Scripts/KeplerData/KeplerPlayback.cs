@@ -143,6 +143,8 @@ namespace KeplerData {
         (Planet planet, float newDistance) => { planet.transform.localPosition = planet.transform.localPosition.normalized * newDistance; }
       );
 
+      m_distanceMapping = (LinearMapping)distanceMapper.Mapping;
+
       m_planetMappingManager += stellarMapper;
       m_planetMappingManager += distanceMapper;
     }
