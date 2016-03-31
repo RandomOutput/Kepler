@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 
 namespace LineDrawing {
-  public class CylinderFactory : MonoBehaviour {
+  public class CylinderMeshGenerator {
     private const float FULL_CIRCLE_RADIANS = Mathf.PI * 2.0f;
     private const int TRIS_PER_FACE = 2;
     private const int VERTS_PER_TRI = 3;
@@ -47,16 +47,6 @@ namespace LineDrawing {
         TotalTris = TotalFaces * TRIS_PER_FACE;
         TriArraySize = TotalTris * VERTS_PER_TRI;
       }
-    }
-
-    // Use this for initialization
-    void Start() {
-      Mesh mesh = GenerateCylinderMesh(8, 3, 5.0f, 0.5f);
-      MeshFilter meshFilter = gameObject.AddComponent<MeshFilter>();
-      meshFilter.mesh = mesh;
-
-      MeshRenderer meshRenderer = gameObject.AddComponent<MeshRenderer>();
-      meshRenderer.material = new Material(Shader.Find("Diffuse"));
     }
 
     public static Mesh GenerateCylinderMesh(int facesAroundU, int subdivisionsV, float height, float radius) {

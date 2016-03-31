@@ -20,7 +20,7 @@ namespace LineDrawing {
     // Cylinder intrinsic properties
     private int m_facesAroundU;
     private int m_subdivisionsV;
-    private int m_radius;
+    private float m_radius;
     private Mesh m_mesh;
 
     private ComponentCacher ComponentCache  {
@@ -32,8 +32,25 @@ namespace LineDrawing {
       }
     }
 
-    public void SetMesh(Mesh mesh, int facesAroundU, int subdivisionsV, int radius) {
-      ComponentCache.GetComponent<MeshFilter>().mesh = mesh;
+    public Material CylinderMaterial {
+      get {
+        return m_componentCache.GetComponent<MeshRenderer>().material;
+      }
+      set {
+        MeshRenderer meshRenderer = m_componentCache.GetComponent<MeshRenderer>();
+        if (meshRenderer == null)
+          meshRenderer = gameObject.AddComponent<MeshRenderer>();
+
+        meshRenderer.material = value;
+      }
+    }
+
+    public void SetMesh(Mesh mesh, int facesAroundU, int subdivisionsV, float radius) {
+      MeshFilter meshFilter = ComponentCache.GetComponent<MeshFilter>();
+      if (meshFilter == null)
+        meshFilter = gameObject.AddComponent<MeshFilter>();
+
+      meshFilter.mesh = mesh;
       m_facesAroundU = facesAroundU;
       m_subdivisionsV = subdivisionsV;
       m_radius = radius;
@@ -47,6 +64,19 @@ namespace LineDrawing {
         setRingNormal(ring, value.Normal);
         setRingPosition(ring, value.Position);
       }
+    }
+
+    public static Cylinder MakeCylinder(int facesAroundU, int subdivisionsV, float radius) { return MakeCylinder(facesAroundU, subdivisionsV, 1.0f, radius); }
+
+    public static Cylinder MakeCylinder(int facesAroundU, int subdivisionsV, float height, float radius) { return MakeCylinder("cylinder", facesAroundU, subdivisionsV, height, radius, new Material(Shader.Find("Standard"))); }
+
+    public static Cylinder MakeCylinder(string name, int facesAroundU, int subdivisionsV, float height, float radius, Material material) {
+      GameObject newCylinderObject = new GameObject(name);
+      Cylinder newCylinder = newCylinderObject.AddComponent<Cylinder>();
+      Mesh cylinderMesh = CylinderMeshGenerator.GenerateCylinderMesh(facesAroundU, subdivisionsV, height, radius);
+      newCylinder.SetMesh(cylinderMesh, facesAroundU, subdivisionsV, radius);
+      newCylinder.CylinderMaterial = material;
+      return newCylinder;
     }
 
     private void setRingPosition(int ringIndex, Vector3 center) {
