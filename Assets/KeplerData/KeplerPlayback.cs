@@ -19,9 +19,12 @@ namespace KeplerData {
     [SerializeField]
     private GameObject m_planetPrefab;
     [SerializeField]
-    private Transform m_exoplanetRoot;
+    private Transform m_systemRoot;
 
-    private Dictionary<uint, Planet> m_spawnedPlanets = new Dictionary<uint, Planet>();
+    private Dictionary<string, StarSystem> m_nameToStarSystem = new Dictionary<string, StarSystem>();
+    private Dictionary<uint, Planet> m_idToPlanet = new Dictionary<uint,Planet>();
+    private List<StarSystem> m_starSystems = new List<StarSystem>();
+    private List<Planet> m_planets = new List<Planet>();
 
     private LinearMapping m_distanceMapping;
 
@@ -29,39 +32,42 @@ namespace KeplerData {
     private Dictionary<string, Color> m_facilityColors;
 
     private MappingManager<Planet> m_planetMappingManager;
+    private MappingManager<StarSystem> m_starSystemMappingManager;
 
     void Awake() {
-      KeplerParser.ParseKeplerDataAsync((KeplerNode[] nodes, List<string> uniqueFalcilities) => {
-        m_uniqueFacilities = uniqueFalcilities;
+      KeplerParser.ParseKeplerDataAsync(OnParsingComplete);
+    }
 
-        NodeStoreDefault<KeplerNode> nodeStore = new NodeStoreDefault<KeplerNode>(nodes);
+    private void OnParsingComplete(KeplerNode[] nodes, List<string> uniqueFalcilities) {
+      m_uniqueFacilities = uniqueFalcilities;
 
-        configureMappings();
+      NodeStoreDefault<KeplerNode> nodeStore = new NodeStoreDefault<KeplerNode>(nodes);
 
-        m_facilityColors = new Dictionary<string, Color>();
-        for (int i = 0; i < m_uniqueFacilities.Count; i++) {
-          m_facilityColors.Add(m_uniqueFacilities[i], new Color(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value));
-        }
+      configureMappings();
 
-        spawnPlanets(nodeStore);
+      m_facilityColors = new Dictionary<string, Color>();
+      for (int i = 0; i < m_uniqueFacilities.Count; i++) {
+        m_facilityColors.Add(m_uniqueFacilities[i], new Color(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value));
+      }
 
-        // Create playhead
-        Playhead<KeplerNode> playhead = new Playhead<KeplerNode>(nodeStore, 1990.0f, 2017.0f, true);
-        playhead.OnStep += (Playhead<KeplerNode> head, float playheadTime, float stepSize) => { Debug.Log(playheadTime); };
+      constructStarSystems(nodeStore);
 
-        // Configure Node Birth and Death Behaviors
-        playhead.OnNodeBorn += (TimeboxedNode node) => {
-          StartCoroutine(showPlanetAfterTime(m_spawnedPlanets[node.UID], UnityEngine.Random.Range(0.0f, 1.0f)));
-        };
+      // Create playhead
+      Playhead<KeplerNode> playhead = new Playhead<KeplerNode>(nodeStore, 1990.0f, 2017.0f, true);
+      playhead.OnStep += (Playhead<KeplerNode> head, float playheadTime, float stepSize) => { Debug.Log(playheadTime); };
 
-        playhead.OnNodeDied += (TimeboxedNode node) => {
-          m_spawnedPlanets[node.UID].Hide();
-        };
+      // Configure Node Birth and Death Behaviors
+      playhead.OnNodeBorn += (TimeboxedNode node) => {
+        StartCoroutine(showPlanetAfterTime(m_idToPlanet[node.UID], UnityEngine.Random.Range(0.0f, 1.0f)));
+      };
 
-        // Start Data Playback
-        playhead.InitializePlayhead();
-        StartCoroutine(moveTimeForward(playhead));
-      });
+      playhead.OnNodeDied += (TimeboxedNode node) => {
+        m_idToPlanet[node.UID].VisibilityState = Planet.Visibility.HIDDEN;
+      };
+
+      // Start Data Playback
+      playhead.InitializePlayhead();
+      StartCoroutine(moveTimeForward(playhead));
     }
 
     void Update() {
@@ -80,7 +86,7 @@ namespace KeplerData {
 
     private IEnumerator showPlanetAfterTime(Planet planet, float seconds) {
       yield return new WaitForSeconds(seconds);
-      planet.Show();
+      planet.VisibilityState = Planet.Visibility.SHOWN;
     }
 
     private IEnumerator moveTimeForward(Playhead<KeplerNode> playhead) {
@@ -90,54 +96,56 @@ namespace KeplerData {
       }
     }
 
-    private void spawnPlanets(NodeStoreDefault<KeplerNode> nodeStore) {
+    private void constructStarSystems(NodeStoreDefault<KeplerNode> nodeStore) {
       foreach (KeplerNode node in nodeStore.Nodes.Values) {
+        bool systemSpawned = m_nameToStarSystem.ContainsKey(node.HostName);
+        StarSystem system;
+
+        if (!m_nameToStarSystem.TryGetValue(node.HostName, out system)) {
+          system = StarSystem.ConstructNewStarSystem(node, m_systemRoot, true);
+          m_starSystems.Add(system);
+          m_nameToStarSystem.Add(node.HostName, system);
+        }
+
         GameObject newPlanetVisual = GameObject.Instantiate(m_planetPrefab);
-        newPlanetVisual.name = node.Name;
-        newPlanetVisual.transform.parent = m_exoplanetRoot;
-        newPlanetVisual.SetActive(false);
-        Planet newPlanet = newPlanetVisual.GetComponent<Planet>();
-        newPlanet.DataNode = node;
-        m_spawnedPlanets.Add(node.UID, newPlanetVisual.GetComponent<Planet>());
+        Planet planet = newPlanetVisual.AddComponent<Planet>();
+        planet.DataNode = node;
+        planet += system;
+        m_planets.Add(newPlanetVisual.GetComponent<Planet>());
+        m_idToPlanet.Add(node.UID, planet);
       }
 
+      m_starSystemMappingManager.UpdateAllMappers();
       m_planetMappingManager.UpdateAllMappers();
     }
 
     private void configureMappings() {
-      // TODO:  This is horrible. Giant array allocation every time you need to get data.
-      //        I really need to fix this up.
-      m_planetMappingManager = new MappingManager<Planet>(
-        () => {
-          Planet[] planets = new Planet[m_spawnedPlanets.Values.Count];
-          m_spawnedPlanets.Values.CopyTo(planets, 0);
-          return planets;
-        }
-      );
+      m_planetMappingManager = new MappingManager<Planet>(() => m_planets );
+      m_starSystemMappingManager = new MappingManager<StarSystem>(() => m_starSystems );
 
-      AttributeMapper<Planet, StellarCoordinates, ComparableVec3> stellarMapper = new AttributeMapper<Planet, StellarCoordinates, ComparableVec3>(
-        (Planet planet) => planet.DataNode.Position,
+      AttributeMapper<StarSystem, StellarCoordinates, ComparableVec3> stellarMapper = new AttributeMapper<StarSystem, StellarCoordinates, ComparableVec3>(
+        (StarSystem system) => system.StellarPosition,
 
         new FunctionalMapping<StellarCoordinates, ComparableVec3>((StellarCoordinates stellarCoords) => {
           return Quaternion.Euler(-stellarCoords.declination, stellarCoords.rightAscention, 0.0f) * Vector3.forward;
         }),
 
-        (Planet planet, ComparableVec3 newPosition) => {
-          float distance = planet.transform.localPosition.magnitude;
-          planet.transform.localPosition = (Vector3)newPosition * distance;
+        (StarSystem system, ComparableVec3 newPosition) => {
+          float distance = system.transform.localPosition.magnitude;
+          system.transform.localPosition = (Vector3)newPosition * distance;
         }
       );
 
-      AttributeMapper<Planet, float, float> distanceMapper = new AttributeMapper<Planet, float, float>(
+      AttributeMapper<StarSystem, float, float> distanceMapper = new AttributeMapper<StarSystem, float, float>(
 
-        (Planet planet) => planet.DataNode.Position.distance,
+        (StarSystem system) => system.StellarPosition.distance,
 
         new LinearMapping(
           new VRViz.Core.Range<float>(distance_inputMin, distance_inputMax),
           new VRViz.Core.Range<float>(distance_outputMin, distance_outputMax)
         ),
 
-        (Planet planet, float newDistance) => { planet.transform.localPosition = planet.transform.localPosition.normalized * newDistance; }
+        (StarSystem system, float newDistance) => { system.transform.localPosition = system.transform.localPosition.normalized * newDistance; }
       );
 
       AttributeMapper<Planet, string, Color> facillityColorMapper = new AttributeMapper<Planet, string, Color>(
@@ -164,8 +172,8 @@ namespace KeplerData {
 
       m_distanceMapping = (LinearMapping)distanceMapper.Mapping;
 
-      m_planetMappingManager += stellarMapper;
-      m_planetMappingManager += distanceMapper;
+      m_starSystemMappingManager += stellarMapper;
+      m_starSystemMappingManager += distanceMapper;
       m_planetMappingManager += facillityColorMapper;
     }
   }

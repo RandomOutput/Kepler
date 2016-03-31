@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 
 namespace VRViz {
   namespace Core {
@@ -15,7 +16,7 @@ namespace VRViz {
       }
 
       void ApplyMapping(DataType dataNode);
-      void ApplyMapping(DataType[] dataNodes);
+      void ApplyMapping(List<DataType> dataNodes);
     }
 
     public class AttributeMapper<DataType, InputType, OutputType> :
@@ -69,8 +70,8 @@ namespace VRViz {
         m_applier(dataNode, mappedValue);
       }
 
-      public void ApplyMapping(DataType[] dataNodes) {
-        for (int i = 0; i < dataNodes.Length; i++) {
+      public void ApplyMapping(List<DataType> dataNodes) {
+        for (int i = 0; i < dataNodes.Count; i++) {
           ApplyMapping(dataNodes[i]);
         }
       }

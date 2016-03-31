@@ -9,8 +9,8 @@ public class KeplerParser {
   public delegate void ParsingCompleteHandler(KeplerNode[] nodes, List<string> uniqueFalcilities);
 
   private const string KeplerFilename = "kepler_planets";
-  private static KeplerNode invalidNode = new KeplerNode("", new StellarCoordinates(0,0,0), "", 0);
-  
+  private static KeplerNode invalidNode = new KeplerNode("", "", new StellarCoordinates(0,0,0), "", 0);
+
   public static CSVErrorCode KeplerDataToKeplerNode(string[] fields, out KeplerNode node) {
 
     if (fields.Length < 151) {
@@ -20,7 +20,6 @@ public class KeplerParser {
 
     string hostName = fields[1];
     string planetLetter = fields[2];
-    string name = hostName + " " + planetLetter;
 
     string discoveringFacility = fields[155];
 
@@ -50,7 +49,7 @@ public class KeplerParser {
 
     StellarCoordinates position = new StellarCoordinates(ra, dec, dist);
 
-    node = new KeplerNode(name, position, discoveringFacility, discoveryYear, float.MaxValue);
+    node = new KeplerNode(hostName, planetLetter, position, discoveringFacility, discoveryYear, float.MaxValue);
     return CSVErrorCode.ERR_OK;
   }
 
@@ -63,7 +62,7 @@ public class KeplerParser {
     GameObject signalObject = new GameObject("parsing signal");
     MarshalledSignal signal = signalObject.AddComponent<MarshalledSignal>();
 
-    AsyncCSVParser<KeplerNode> asyncParser = new AsyncCSVParser<KeplerNode>();
+    AsyncWorker<CSVParser<KeplerNode>.ParserOutput> asyncParser = new AsyncWorker<CSVParser<KeplerNode>.ParserOutput>();
 
     signal.OnSignal += () => {
       GameObject.Destroy(signalObject);
@@ -75,8 +74,9 @@ public class KeplerParser {
       onComplete(planets, uniqueFacilities);
     };
 
-    asyncParser.InitializeParsing(keplerCSV, signal, KeplerDataToKeplerNode, (string err) => Debug.LogWarning(err));
-    
+    asyncParser.StartWork(signal, () => {
+      return CSVParser<KeplerNode>.ParseCSVRowsToType(keplerCSV, KeplerDataToKeplerNode, (string err) => Debug.LogWarning(err));
+    });
   }
 
   static void signal_OnSignal() {

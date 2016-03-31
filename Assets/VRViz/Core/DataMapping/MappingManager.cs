@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace VRViz {
   namespace Core {
     public class MappingManager<T> {
-      public delegate T[] DataAccessor();
+      public delegate List<T> DataAccessor();
 
       private List<IAttributeMapper<T>> m_mappers;
       private DataAccessor m_dataAccessor;
@@ -43,7 +43,7 @@ namespace VRViz {
       }
 
       public virtual void UpdateMappers(bool updateAllMappers = false) {
-        T[] data = m_dataAccessor();
+        List<T> data = m_dataAccessor();
 
         for (int i = 0; i < m_mappers.Count; i++) {
           if (!m_mappers[i].AutoUpdate && !updateAllMappers)

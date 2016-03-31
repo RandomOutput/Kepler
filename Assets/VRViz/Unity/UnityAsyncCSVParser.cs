@@ -7,16 +7,13 @@ using UnityEngine;
 
 namespace VRViz {
   namespace Unity {
-    /// <summary>
-    /// Implementors must define a concrete type for T
-    /// </summary>
-    /// <typeparam name="T">The type returned by the CSV parser.</typeparam>
-    public class AsyncCSVParser<T> {
+    public class AsyncWorker<T> {
+      public delegate T WorkDelegate();
 
       private object m_outputLock = new object();
-      private CSVParser<T>.ParserOutput m_output;
+      private T m_output;
 
-      public CSVParser<T>.ParserOutput ParserOutput {
+      public T ParserOutput {
         get {
           lock (m_outputLock) {
             return m_output;
@@ -24,18 +21,17 @@ namespace VRViz {
         }
       }
 
-      public void InitializeParsing(string rawCSV, MarshalledSignal parsingCompleteSignal, CSVParser<T>.RowToObjectFactory factory, CSVParser<T>.ErrorOutDelegate errorOutput = null) {
-        // Setup Parsing thread 
-        Thread parsingThread = new Thread((object parsingObj) => {
-          CSVParser<T>.ParserOutput output = CSVParser<T>.ParseCSVRowsToType(rawCSV, factory, errorOutput);
+      public void StartWork(MarshalledSignal finishedSignal, WorkDelegate work) {
+        Thread workThread = new Thread(()=> {
+          T output = work();
           lock (m_outputLock) {
             m_output = output;
-          }         
-          parsingCompleteSignal.Signal();
+          }
+          finishedSignal.Signal();
         });
 
         // Run parsing thread
-        parsingThread.Start();
+        workThread.Start();
       }
     }
   }
