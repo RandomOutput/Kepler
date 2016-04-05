@@ -14,8 +14,6 @@ namespace LineDrawing {
       }
     }
 
-    // Cached Components
-    private ComponentCacher m_componentCache;
 
     // Cylinder intrinsic properties
     private int m_facesAroundU;
@@ -23,21 +21,12 @@ namespace LineDrawing {
     private float m_radius;
     private Mesh m_mesh;
 
-    private ComponentCacher ComponentCache  {
-      get {
-        if (m_componentCache == null)
-          m_componentCache = new ComponentCacher(gameObject);
-
-        return m_componentCache;
-      }
-    }
-
     public Material CylinderMaterial {
       get {
-        return m_componentCache.GetComponent<MeshRenderer>().material;
+        return gameObject.GetComponent<MeshRenderer>().material;
       }
       set {
-        MeshRenderer meshRenderer = m_componentCache.GetComponent<MeshRenderer>();
+        MeshRenderer meshRenderer = gameObject.GetComponent<MeshRenderer>();
         if (meshRenderer == null)
           meshRenderer = gameObject.AddComponent<MeshRenderer>();
 
@@ -46,7 +35,7 @@ namespace LineDrawing {
     }
 
     public void SetMesh(Mesh mesh, int facesAroundU, int subdivisionsV, float radius) {
-      MeshFilter meshFilter = ComponentCache.GetComponent<MeshFilter>();
+      MeshFilter meshFilter = gameObject.GetComponent<MeshFilter>();
       if (meshFilter == null)
         meshFilter = gameObject.AddComponent<MeshFilter>();
 
