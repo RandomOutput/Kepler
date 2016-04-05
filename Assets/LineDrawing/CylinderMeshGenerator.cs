@@ -4,11 +4,11 @@ using System.Collections.Generic;
 
 namespace LineDrawing {
   public class CylinderMeshGenerator {
-    private const float FULL_CIRCLE_RADIANS = Mathf.PI * 2.0f;
-    private const int TRIS_PER_FACE = 2;
-    private const int VERTS_PER_TRI = 3;
-    private const int RINGS_BEFORE_SUBDIVISION = 2;
-    private const int FACES_BEFORE_SUBDIVISION = RINGS_BEFORE_SUBDIVISION / 2;
+    public const float FULL_CIRCLE_RADIANS = Mathf.PI * 2.0f;
+    public const int TRIS_PER_FACE = 2;
+    public const int VERTS_PER_TRI = 3;
+    public const int RINGS_BEFORE_SUBDIVISION = 2;
+    public const int FACES_BEFORE_SUBDIVISION = RINGS_BEFORE_SUBDIVISION / 2;
     private static Vector3 MESH_GENERATION_NORMAL = new Vector3(0.0f, -1.0f, 0.0f);
 
     private struct VertexAndUVArgs {

@@ -194,6 +194,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_cylinderMaterial: {fileID: 2100000, guid: 562238ccc2fe58247bce12d94094f946, type: 2}
+  ToMove: {x: 0, y: 0, z: 0}
 --- !u!1 &425017749
 GameObject:
   m_ObjectHideFlags: 0

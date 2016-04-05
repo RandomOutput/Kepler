@@ -1,25 +1,80 @@
 ﻿using UnityEngine;
 using System.Collections;
-using ComponentCaching;
+using System.Collections.Generic;
 
 namespace LineDrawing {
-  public class Cylinder : MonoBehaviour {
-    public struct RingTransform {
-      public readonly Vector3 Position;
-      public readonly Vector3 Normal;
+  public class RingTransform {
+    private Vector3 m_position;
+    private Vector3 m_normal;
+    private Mesh m_mesh;
+    private List<Vector3> m_vertCache;
+    private readonly int m_firstVertexIndex;
+    private readonly int m_lastVertexIndex;
+    private readonly int m_vertexCount;
 
-      public RingTransform(Vector3 position, Vector3 normal) {
-        Position = position;
-        Normal = normal;
+    public RingTransform(int firstVertexIndex, int lastVertexIndex, Mesh mesh) {
+      m_mesh = mesh;
+      m_vertCache = new List<Vector3>(mesh.vertices);
+      m_firstVertexIndex = firstVertexIndex;
+      m_lastVertexIndex = lastVertexIndex;
+      m_vertexCount = lastVertexIndex - firstVertexIndex;
+      m_position = calcRingCenter();
+      m_normal = calcRingNormal();
+    }
+
+    public Vector3 Position {
+      get {
+        return m_position;
+      }
+      set {
+        Vector3 toNewCenter = value - m_position;
+        for (int i = m_firstVertexIndex; i <= m_lastVertexIndex; i++) {
+          m_vertCache[i] = m_mesh.vertices[i] + toNewCenter;
+        }
+        m_mesh.SetVertices(m_vertCache);
+        m_position = value;
       }
     }
 
+    public Vector3 Normal {
+      get {
+        return m_normal;
+      }
+      set {
+        Quaternion oldNormalToNew = Quaternion.FromToRotation(m_normal, value);
+        for (int i = m_firstVertexIndex; i <= m_lastVertexIndex; i++) {
+          Vector3 oldFromCenter = m_mesh.vertices[i] - m_position;
+          Vector3 newFromCenter = oldNormalToNew * oldFromCenter;
+          m_vertCache[i] = newFromCenter + m_position;
+        }
+        m_mesh.SetVertices(m_vertCache);
+      }
+    }
 
-    // Cylinder intrinsic properties
+    private Vector3 calcRingCenter() {
+      Vector3 vectorSum = Vector3.zero;
+      for (int i = m_firstVertexIndex; i <= m_lastVertexIndex; i++) {
+        vectorSum += m_mesh.vertices[i];
+      }
+      Vector3 center = vectorSum / m_vertexCount;
+      return center;
+    }
+
+    private Vector3 calcRingNormal() {
+      Vector3 center = calcRingCenter();
+      Vector3 v1 = m_mesh.vertices[m_firstVertexIndex] - center;
+      Vector3 v2 = m_mesh.vertices[m_firstVertexIndex + ((m_lastVertexIndex - m_firstVertexIndex) / 2)] - center;
+      Vector3 normal = Vector3.Cross(v1, v2);
+      return normal;
+    }
+  }
+
+  public class Cylinder : MonoBehaviour {
     private int m_facesAroundU;
     private int m_subdivisionsV;
     private float m_radius;
     private Mesh m_mesh;
+    private RingTransform[] m_ringTransforms;
 
     public Material CylinderMaterial {
       get {
@@ -40,18 +95,27 @@ namespace LineDrawing {
         meshFilter = gameObject.AddComponent<MeshFilter>();
 
       meshFilter.mesh = mesh;
+      m_mesh = mesh;
       m_facesAroundU = facesAroundU;
       m_subdivisionsV = subdivisionsV;
       m_radius = radius;
+      ConstructRingTransforms();
     }
 
     public RingTransform this[int ring] {
       get {
-        return new RingTransform(calcRingNormal(ring), calcRingCenter(ring));
+        if (ring > m_ringTransforms.Length)
+          throw new System.IndexOutOfRangeException();
+        return m_ringTransforms[ring];
       }
-      set {
-        setRingNormal(ring, value.Normal);
-        setRingPosition(ring, value.Position);
+    }
+
+    private void ConstructRingTransforms() {
+      m_ringTransforms = new RingTransform[m_subdivisionsV + CylinderMeshGenerator.FACES_BEFORE_SUBDIVISION];
+      for (int i = 0; i < m_facesAroundU; i++) {
+        int start, end;
+        RingIndicies(i, out start, out end);
+        m_ringTransforms[i] = new RingTransform(start, end, m_mesh);
       }
     }
 
@@ -68,21 +132,9 @@ namespace LineDrawing {
       return newCylinder;
     }
 
-    private void setRingPosition(int ringIndex, Vector3 center) {
-      throw new System.NotImplementedException();
+    private void RingIndicies(int ringIndex, out int ringStart, out int ringEnd) {
+      ringStart = ringIndex * m_facesAroundU;
+      ringEnd = ringStart + m_facesAroundU - 1;
     }
-
-    private void setRingNormal(int ringIndex, Vector3 normal) {
-      throw new System.NotImplementedException();
-    }
-
-    private Vector3 calcRingCenter(int ringIndex) {
-      throw new System.NotImplementedException();
-    }
-
-    private Vector3 calcRingNormal(int ringIndex) {
-      throw new System.NotImplementedException();
-    }
-
   }
 }
