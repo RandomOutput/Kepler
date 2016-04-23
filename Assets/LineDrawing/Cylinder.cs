@@ -7,17 +7,18 @@ namespace LineDrawing {
     private Vector3 m_position;
     private Vector3 m_normal;
     private Mesh m_mesh;
-    private List<Vector3> m_vertCache;
+    private Vector3[] m_vertCache;
+    private Transform m_parent;
     private readonly int m_firstVertexIndex;
     private readonly int m_lastVertexIndex;
     private readonly int m_vertexCount;
 
-    public RingTransform(int firstVertexIndex, int lastVertexIndex, Mesh mesh) {
+    public RingTransform(int firstVertexIndex, int lastVertexIndex, Mesh mesh, Transform parent) {
+      m_parent = parent;
       m_mesh = mesh;
-      m_vertCache = new List<Vector3>(mesh.vertices);
       m_firstVertexIndex = firstVertexIndex;
       m_lastVertexIndex = lastVertexIndex;
-      m_vertexCount = lastVertexIndex - firstVertexIndex;
+      m_vertexCount = 1 + lastVertexIndex - firstVertexIndex;
       m_position = calcRingCenter();
       m_normal = calcRingNormal();
     }
@@ -27,12 +28,13 @@ namespace LineDrawing {
         return m_position;
       }
       set {
+        m_vertCache = m_mesh.vertices;
         Vector3 toNewCenter = value - m_position;
         for (int i = m_firstVertexIndex; i <= m_lastVertexIndex; i++) {
           m_vertCache[i] = m_mesh.vertices[i] + toNewCenter;
         }
-        m_mesh.SetVertices(m_vertCache);
-        m_position = value;
+        m_mesh.vertices = m_vertCache;
+        m_position = m_position + toNewCenter;
       }
     }
 
@@ -42,12 +44,14 @@ namespace LineDrawing {
       }
       set {
         Quaternion oldNormalToNew = Quaternion.FromToRotation(m_normal, value);
+        m_vertCache = m_mesh.vertices;
         for (int i = m_firstVertexIndex; i <= m_lastVertexIndex; i++) {
           Vector3 oldFromCenter = m_mesh.vertices[i] - m_position;
           Vector3 newFromCenter = oldNormalToNew * oldFromCenter;
           m_vertCache[i] = newFromCenter + m_position;
         }
-        m_mesh.SetVertices(m_vertCache);
+        m_mesh.vertices = m_vertCache;
+        m_normal = value;
       }
     }
 
@@ -89,6 +93,12 @@ namespace LineDrawing {
       }
     }
 
+    public int Count {
+      get {
+        return m_ringTransforms.Length;
+      }
+    }
+
     public void SetMesh(Mesh mesh, int facesAroundU, int subdivisionsV, float radius) {
       MeshFilter meshFilter = gameObject.GetComponent<MeshFilter>();
       if (meshFilter == null)
@@ -111,11 +121,11 @@ namespace LineDrawing {
     }
 
     private void ConstructRingTransforms() {
-      m_ringTransforms = new RingTransform[m_subdivisionsV + CylinderMeshGenerator.FACES_BEFORE_SUBDIVISION];
-      for (int i = 0; i < m_facesAroundU; i++) {
+      m_ringTransforms = new RingTransform[m_subdivisionsV + CylinderMeshGenerator.RINGS_BEFORE_SUBDIVISION];
+      for (int i = 0; i < m_ringTransforms.Length; i++) {
         int start, end;
         RingIndicies(i, out start, out end);
-        m_ringTransforms[i] = new RingTransform(start, end, m_mesh);
+        m_ringTransforms[i] = new RingTransform(start, end, m_mesh, transform);
       }
     }
 
