@@ -137,7 +137,7 @@ namespace LineDrawing {
       }
     }
 
-    private static Vector3 placeVert(Vector3 center, Vector3 up, Vector3 right, float radius, float radians) {
+    public static Vector3 placeVert(Vector3 center, Vector3 up, Vector3 right, float radius, float radians) {
       Vector3 newVert = Vector3.zero;
       float xComponent = Mathf.Cos(radians);
       float yComponent = Mathf.Sin(radians);
@@ -148,7 +148,7 @@ namespace LineDrawing {
       return newVert;
     }
 
-    private static void basisVectorsFromNormal(Vector3 normalVector, out Vector3 right, out Vector3 up) {
+    public static void basisVectorsFromNormal(Vector3 normalVector, out Vector3 right, out Vector3 up) {
       // Make sure our vector for cross product is dis-simmilar to our normal.
       Vector3 crossVector = Vector3.forward;
       if (Vector3.Dot(crossVector, normalVector) > 0.75f)

@@ -61,22 +61,22 @@ namespace LineDrawing {
       // Special case for first vert
       var initialDirection = (verticies[1] - verticies[0]).normalized;
       m_cylinder[0].Position = verticies[0];
-      m_cylinder[0].Normal = initialDirection;
+      m_cylinder[0].SetNormal(initialDirection);
 
-      for (int i = 1; i < verticies.Length - 1; i++) {
+      for (int i = 1; i < verticies.Length; i++) {
         var inDirection = verticies[i] - verticies[i - 1];
-        var outDirection = verticies[i + 1] - verticies[i];
+        var outDirection = i == verticies.Length - 1 ? inDirection : verticies[i + 1] - verticies[i];
         var averageDirection = ((inDirection + outDirection) / 2.0f).normalized;
 
-        m_cylinder[i].Position = verticies[i];
-        m_cylinder[i].Normal = averageDirection;
-      }
+        Vector3 lastRootPosition = m_cylinder[i - 1].Position + m_cylinder[i - 1].ToRootVertex;
+        Vector3 projectionRayFromLastRoot = RingTransform.PlaneProjectionAlongVector(verticies[i], averageDirection, lastRootPosition, m_cylinder[i-1].Normal);
+        Vector3 lastRootProjectedToRingPlane = lastRootPosition + projectionRayFromLastRoot;
+        Vector3 centerToLastRootProjection = lastRootProjectedToRingPlane - verticies[i];
+        Vector3 projectedDirectionToNextRoot = centerToLastRootProjection.normalized;
 
-      // Special case for last vert
-      int lastVertIndex = verticies.Length - 1;
-      var finalDirection = (verticies[lastVertIndex] - verticies[lastVertIndex - 1]).normalized;
-      m_cylinder[lastVertIndex].Position = verticies[lastVertIndex];
-      m_cylinder[lastVertIndex].Normal = finalDirection;
+        m_cylinder[i].Position = verticies[i];
+        m_cylinder[i].SetNormal(averageDirection, projectedDirectionToNextRoot);
+      }
     }
   }
 }

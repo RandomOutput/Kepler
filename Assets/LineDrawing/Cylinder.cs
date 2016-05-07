@@ -12,8 +12,9 @@ namespace LineDrawing {
     private readonly int m_firstVertexIndex;
     private readonly int m_lastVertexIndex;
     private readonly int m_vertexCount;
+    private readonly float m_radius;
 
-    public RingTransform(int firstVertexIndex, int lastVertexIndex, Mesh mesh, Transform parent) {
+    public RingTransform(int firstVertexIndex, int lastVertexIndex, float radius, Mesh mesh, Transform parent) {
       m_parent = parent;
       m_mesh = mesh;
       m_firstVertexIndex = firstVertexIndex;
@@ -21,6 +22,7 @@ namespace LineDrawing {
       m_vertexCount = 1 + lastVertexIndex - firstVertexIndex;
       m_position = calcRingCenter();
       m_normal = calcRingNormal();
+      m_radius = radius;
     }
 
     public Vector3 Position {
@@ -35,6 +37,7 @@ namespace LineDrawing {
         }
         m_mesh.vertices = m_vertCache;
         m_position = m_position + toNewCenter;
+        m_mesh.RecalculateNormals();
       }
     }
 
@@ -42,17 +45,57 @@ namespace LineDrawing {
       get {
         return m_normal;
       }
-      set {
-        Quaternion oldNormalToNew = Quaternion.FromToRotation(m_normal, value);
-        m_vertCache = m_mesh.vertices;
-        for (int i = m_firstVertexIndex; i <= m_lastVertexIndex; i++) {
-          Vector3 oldFromCenter = m_mesh.vertices[i] - m_position;
-          Vector3 newFromCenter = oldNormalToNew * oldFromCenter;
-          m_vertCache[i] = newFromCenter + m_position;
-        }
-        m_mesh.vertices = m_vertCache;
-        m_normal = value;
+    }
+
+    public Vector3 ToRootVertex {
+      get {
+        return (m_vertCache[m_firstVertexIndex] - m_position);
       }
+    }
+
+    public void SetNormal(Vector3 normal) {
+      Vector3 up = Vector3.up;
+      Vector3.OrthoNormalize(ref normal, ref up);
+      SetNormal(normal, up);
+      m_mesh.RecalculateNormals();
+    }
+
+    public void SetNormal(Vector3 normal, Vector3 rootVertexDirection) {
+      Vector3 right = rootVertexDirection;
+      Vector3 up = Vector3.Cross(normal, right).normalized;
+
+      for (int i = m_firstVertexIndex; i <= m_lastVertexIndex; i++) {
+        int indexInRing = i - m_firstVertexIndex;
+        float radians = CylinderMeshGenerator.FULL_CIRCLE_RADIANS * (indexInRing / (float)((m_lastVertexIndex - m_firstVertexIndex) + 1));
+        Vector3 vertPosition = CylinderMeshGenerator.placeVert(m_position, up, right, m_radius, radians);
+        m_vertCache[i] = vertPosition;
+      }
+
+      m_mesh.vertices = m_vertCache;
+      m_normal = normal;
+    }
+
+    public static Vector3 PlaneProjection(Vector3 planePoint, Vector3 planeNormal, Vector3 pointToProject) {
+      Vector3 pointToPoint = pointToProject - planePoint;
+      float distFromPlane = Vector3.Dot(pointToPoint, planeNormal.normalized);
+      Vector3 projectedPoint = pointToProject + (-planeNormal * distFromPlane);
+      return projectedPoint - planePoint;
+    }
+
+    public static Vector3 PlaneProjectionAlongVector(Vector3 planePoint, Vector3 planeNormal, Vector3 pointToProject, Vector3 projectionVector) {
+      float denom = Vector3.Dot(planeNormal, projectionVector);
+      if (denom <= Mathf.Epsilon)
+        return Vector3.zero;
+
+      Vector3 p0l0 = planePoint - pointToProject;
+      float dist = Vector3.Dot(p0l0, planeNormal) / denom;
+      Vector3 projectionRay = (projectionVector.normalized * dist);
+      return projectionRay;
+    }
+
+    public static float RadiansBetweenPoints(Vector2 p1, Vector2 p2) {
+      Vector2 toP2 = p2 - p1;
+      return Mathf.Atan2(toP2.y, toP2.x);
     }
 
     private Vector3 calcRingCenter() {
@@ -125,7 +168,7 @@ namespace LineDrawing {
       for (int i = 0; i < m_ringTransforms.Length; i++) {
         int start, end;
         RingIndicies(i, out start, out end);
-        m_ringTransforms[i] = new RingTransform(start, end, m_mesh, transform);
+        m_ringTransforms[i] = new RingTransform(start, end, m_radius, m_mesh, transform);
       }
     }
 
