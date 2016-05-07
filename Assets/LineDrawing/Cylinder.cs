@@ -61,12 +61,16 @@ namespace LineDrawing {
     }
 
     public void SetNormal(Vector3 normal, Vector3 rootVertexDirection) {
+      Debug.DrawRay(Position, rootVertexDirection, Color.red, float.MaxValue);
       Vector3 right = rootVertexDirection;
       Vector3 up = Vector3.Cross(normal, right).normalized;
 
       for (int i = m_firstVertexIndex; i <= m_lastVertexIndex; i++) {
         int indexInRing = i - m_firstVertexIndex;
-        float radians = CylinderMeshGenerator.FULL_CIRCLE_RADIANS * (indexInRing / (float)((m_lastVertexIndex - m_firstVertexIndex) + 1));
+        float circlePercentage = (indexInRing / (float)((m_lastVertexIndex - m_firstVertexIndex) + 1));
+        float radians = CylinderMeshGenerator.FULL_CIRCLE_RADIANS * circlePercentage;
+        Debug.Log(indexInRing + " / " + "((" + m_lastVertexIndex + " - " + m_firstVertexIndex + ") + 1 = " + circlePercentage);
+        Debug.Log(indexInRing + " radians: " + radians);
         Vector3 vertPosition = CylinderMeshGenerator.placeVert(m_position, up, right, m_radius, radians);
         m_vertCache[i] = vertPosition;
       }
