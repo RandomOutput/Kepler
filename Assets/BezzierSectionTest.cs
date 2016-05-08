@@ -17,7 +17,7 @@ public class BezzierSectionTest : MonoBehaviour {
 	}
 
 	// Update is called once per frame
-	void Update () {
+  void Update () {
     m_bezzierSection[0] = m_p0.position;
     m_bezzierSection[1] = m_p1.position;
     m_bezzierSection[2] = m_p2.position;

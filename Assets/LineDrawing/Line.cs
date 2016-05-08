@@ -69,7 +69,8 @@ namespace LineDrawing {
         var averageDirection = ((inDirection + outDirection) / 2.0f).normalized;
 
         Vector3 lastRootPosition = m_cylinder[i - 1].Position + m_cylinder[i - 1].ToRootVertex;
-        Vector3 projectionRayFromLastRoot = RingTransform.PlaneProjectionAlongVector(verticies[i], averageDirection, lastRootPosition, m_cylinder[i-1].Normal);
+        Vector3 fromLastPoint = verticies[i] - verticies[i - 1];
+        Vector3 projectionRayFromLastRoot = RingTransform.PlaneProjectionAlongVector(verticies[i], averageDirection, lastRootPosition, fromLastPoint);
         Vector3 lastRootProjectedToRingPlane = lastRootPosition + projectionRayFromLastRoot;
         Vector3 centerToLastRootProjection = lastRootProjectedToRingPlane - verticies[i];
         Vector3 projectedDirectionToNextRoot = centerToLastRootProjection.normalized;

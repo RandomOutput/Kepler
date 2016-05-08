@@ -70,7 +70,7 @@ namespace LineDrawing {
       m_p2 = p2;
       m_p3 = p3;
       m_pointsInSection = pointsInSection;
-      m_line = new Line(m_pointsInSection, 10, 0.05f);
+      m_line = new Line(m_pointsInSection, 3, 0.01f);
       m_points = m_line.Verticies;
       UpdateCurve();
     }

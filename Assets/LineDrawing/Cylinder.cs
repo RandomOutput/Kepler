@@ -6,23 +6,26 @@ namespace LineDrawing {
   public class RingTransform {
     private Vector3 m_position;
     private Vector3 m_normal;
-    private Mesh m_mesh;
     private Vector3[] m_vertCache;
-    private Transform m_parent;
+    private Cylinder m_parent;
     private readonly int m_firstVertexIndex;
-    private readonly int m_lastVertexIndex;
     private readonly int m_vertexCount;
     private readonly float m_radius;
 
-    public RingTransform(int firstVertexIndex, int lastVertexIndex, float radius, Mesh mesh, Transform parent) {
-      m_parent = parent;
-      m_mesh = mesh;
-      m_firstVertexIndex = firstVertexIndex;
-      m_lastVertexIndex = lastVertexIndex;
+    public RingTransform(int firstVertexIndex, int lastVertexIndex, float radius, Mesh mesh, Cylinder parent) {
       m_vertexCount = 1 + lastVertexIndex - firstVertexIndex;
+      m_vertCache = new Vector3[m_vertexCount];
+      for (int i = firstVertexIndex; i <= lastVertexIndex; i++) {
+        m_vertCache[i - firstVertexIndex] = mesh.vertices[i];
+      }
+
+      m_parent = parent;
+      m_firstVertexIndex = firstVertexIndex;
       m_position = calcRingCenter();
       m_normal = calcRingNormal();
       m_radius = radius;
+
+
     }
 
     public Vector3 Position {
@@ -30,14 +33,13 @@ namespace LineDrawing {
         return m_position;
       }
       set {
-        m_vertCache = m_mesh.vertices;
         Vector3 toNewCenter = value - m_position;
-        for (int i = m_firstVertexIndex; i <= m_lastVertexIndex; i++) {
-          m_vertCache[i] = m_mesh.vertices[i] + toNewCenter;
+        for (int i = 0; i < m_vertexCount; i++) {
+          m_vertCache[i] = m_vertCache[i] + toNewCenter;
         }
-        m_mesh.vertices = m_vertCache;
+
         m_position = m_position + toNewCenter;
-        m_mesh.RecalculateNormals();
+        m_parent.setVertexRange(m_firstVertexIndex, m_vertCache);
       }
     }
 
@@ -49,7 +51,7 @@ namespace LineDrawing {
 
     public Vector3 ToRootVertex {
       get {
-        return (m_vertCache[m_firstVertexIndex] - m_position);
+        return (m_vertCache[0] - m_position);
       }
     }
 
@@ -57,26 +59,21 @@ namespace LineDrawing {
       Vector3 up = Vector3.up;
       Vector3.OrthoNormalize(ref normal, ref up);
       SetNormal(normal, up);
-      m_mesh.RecalculateNormals();
     }
 
     public void SetNormal(Vector3 normal, Vector3 rootVertexDirection) {
-      Debug.DrawRay(Position, rootVertexDirection, Color.red, float.MaxValue);
       Vector3 right = rootVertexDirection;
       Vector3 up = Vector3.Cross(normal, right).normalized;
-
-      for (int i = m_firstVertexIndex; i <= m_lastVertexIndex; i++) {
-        int indexInRing = i - m_firstVertexIndex;
-        float circlePercentage = (indexInRing / (float)((m_lastVertexIndex - m_firstVertexIndex) + 1));
+      for (int i = 0; i < m_vertexCount; i++) {
+        float circlePercentage = i / (float)((m_vertexCount));
         float radians = CylinderMeshGenerator.FULL_CIRCLE_RADIANS * circlePercentage;
-        Debug.Log(indexInRing + " / " + "((" + m_lastVertexIndex + " - " + m_firstVertexIndex + ") + 1 = " + circlePercentage);
-        Debug.Log(indexInRing + " radians: " + radians);
         Vector3 vertPosition = CylinderMeshGenerator.placeVert(m_position, up, right, m_radius, radians);
         m_vertCache[i] = vertPosition;
       }
 
-      m_mesh.vertices = m_vertCache;
       m_normal = normal;
+
+      m_parent.setVertexRange(m_firstVertexIndex, m_vertCache);
     }
 
     public static Vector3 PlaneProjection(Vector3 planePoint, Vector3 planeNormal, Vector3 pointToProject) {
@@ -87,6 +84,7 @@ namespace LineDrawing {
     }
 
     public static Vector3 PlaneProjectionAlongVector(Vector3 planePoint, Vector3 planeNormal, Vector3 pointToProject, Vector3 projectionVector) {
+      projectionVector = projectionVector.normalized;
       float denom = Vector3.Dot(planeNormal, projectionVector);
       if (denom <= Mathf.Epsilon)
         return Vector3.zero;
@@ -104,8 +102,8 @@ namespace LineDrawing {
 
     private Vector3 calcRingCenter() {
       Vector3 vectorSum = Vector3.zero;
-      for (int i = m_firstVertexIndex; i <= m_lastVertexIndex; i++) {
-        vectorSum += m_mesh.vertices[i];
+      for (int i = 0; i < m_vertexCount; i++) {
+        vectorSum += m_vertCache[i];
       }
       Vector3 center = vectorSum / m_vertexCount;
       return center;
@@ -113,8 +111,8 @@ namespace LineDrawing {
 
     private Vector3 calcRingNormal() {
       Vector3 center = calcRingCenter();
-      Vector3 v1 = m_mesh.vertices[m_firstVertexIndex] - center;
-      Vector3 v2 = m_mesh.vertices[m_firstVertexIndex + ((m_lastVertexIndex - m_firstVertexIndex) / 2)] - center;
+      Vector3 v1 = m_vertCache[0] - center;
+      Vector3 v2 = m_vertCache[m_vertexCount / 2] - center;
       Vector3 normal = Vector3.Cross(v1, v2);
       return normal;
     }
@@ -126,6 +124,7 @@ namespace LineDrawing {
     private float m_radius;
     private Mesh m_mesh;
     private RingTransform[] m_ringTransforms;
+    private Vector3[] m_vertCache;
 
     public Material CylinderMaterial {
       get {
@@ -156,6 +155,7 @@ namespace LineDrawing {
       m_facesAroundU = facesAroundU;
       m_subdivisionsV = subdivisionsV;
       m_radius = radius;
+      m_vertCache = mesh.vertices;
       ConstructRingTransforms();
     }
 
@@ -167,12 +167,25 @@ namespace LineDrawing {
       }
     }
 
+    public void setVertexRange(int index, Vector3[] verticies) {
+      if (index + verticies.Length > m_vertCache.Length)
+        throw new System.ArgumentOutOfRangeException("vertex buffer will overflow the mesh vertex array.");
+
+      for (int i = 0; i < verticies.Length; i++) {
+        m_vertCache[i + index] = verticies[i];
+      }
+
+      m_mesh.vertices = m_vertCache;
+      m_mesh.RecalculateBounds();
+      m_mesh.RecalculateNormals();
+    }
+
     private void ConstructRingTransforms() {
       m_ringTransforms = new RingTransform[m_subdivisionsV + CylinderMeshGenerator.RINGS_BEFORE_SUBDIVISION];
       for (int i = 0; i < m_ringTransforms.Length; i++) {
         int start, end;
         RingIndicies(i, out start, out end);
-        m_ringTransforms[i] = new RingTransform(start, end, m_radius, m_mesh, transform);
+        m_ringTransforms[i] = new RingTransform(start, end, m_radius, m_mesh, this);
       }
     }
 
